@@ -68,7 +68,7 @@ NOTE: the various other Cardano components can be obtained through other attribu
 -  `cardano-report-server-static`:
    - `cardano-report-server`
 -  `cardano-sl-auxx`:
-   - `cardano-hash-installer`, `cardano-auxx`
+   - `cardano-auxx`
 -  `cardano-sl-explorer-static`:
    - `cardano-explorer`, `cardano-explorer-hs2purs`, `cardano-explorer-swagger`, `cardano-explorer-mock`
 -  `cardano-sl-tools-static`:
@@ -88,10 +88,6 @@ Please, see the previous section on how to enable use of the IOHK binary cache.
 Enter `nix-shell`:
 
     $ nix-shell
-
-And if it is the first project in Haskell on this machine, run `stack setup`:
-
-    [nix-shell:~/cardano-sl]$ stack setup --nix
 
 After that, in order to build Cardano SL with wallet capabilities, run the following script:
 

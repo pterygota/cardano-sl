@@ -8,6 +8,7 @@ module Command.Proc
 import           Universum
 
 import           Data.Constraint (Dict (..))
+import           Data.Default (def)
 import           Data.List ((!!))
 import qualified Data.Map as Map
 import           Formatting (build, int, sformat, stext, (%))
@@ -18,8 +19,8 @@ import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Communication (MsgType (..), Origin (..), SendActions, dataFlow,
                                     immediateConcurrentConversations)
-import           Pos.Core (AddrStakeDistribution (..), Address, StakeholderId, addressHash,
-                           mkMultiKeyDistr, unsafeGetCoin)
+import           Pos.Core (AddrStakeDistribution (..), Address, SoftwareVersion (..), StakeholderId,
+                           addressHash, mkMultiKeyDistr, unsafeGetCoin)
 import           Pos.Core.Address (makeAddress)
 import           Pos.Core.Configuration (genesisSecretKeys)
 import           Pos.Core.Txp (TxOut (..))
@@ -37,10 +38,11 @@ import           Command.BlockGen (generateBlocks)
 import           Command.Help (mkHelpMessage)
 import qualified Command.Rollback as Rollback
 import qualified Command.Tx as Tx
-import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr, tyAddress, tyBlockVersion,
-                                       tyBlockVersionModifier, tyBool, tyByte, tyCoin,
-                                       tyCoinPortion, tyEither, tyEpochIndex, tyFilePath, tyHash,
-                                       tyInt, tyProposeUpdateSystem, tyPublicKey, tyScriptVersion,
+import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr, tyAddress,
+                                       tyApplicationName, tyBlockVersion, tyBlockVersionModifier,
+                                       tyBool, tyByte, tyCoin, tyCoinPortion, tyEither,
+                                       tyEpochIndex, tyFilePath, tyHash, tyInt,
+                                       tyProposeUpdateSystem, tyPublicKey, tyScriptVersion,
                                        tySecond, tySendMode, tySoftwareVersion, tyStakeholderId,
                                        tySystemTag, tyTxOut, tyValue, tyWord, tyWord32)
 import qualified Command.Update as Update
@@ -307,6 +309,19 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     , cpHelp = "construct a part of the update proposal for binary update"
     },
 
+    let name = "software" in
+    return CommandProc
+    { cpName = name
+    , cpArgumentPrepare = identity
+    , cpArgumentConsumer = do
+        appName <- getArg tyApplicationName "name"
+        number <- getArg tyWord32 "n"
+        pure (appName, number)
+    , cpExec = \(svAppName, svNumber) -> do
+        return $ ValueSoftwareVersion SoftwareVersion{..}
+    , cpHelp = "Construct a software version from application name and number"
+    },
+
     let name = "propose-update" in
     needsSendActions name >>= \sendActions ->
     needsAuxxMode name >>= \Dict ->
@@ -322,7 +337,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
         puVoteAll <- getArg tyBool "vote-all"
         puBlockVersion <- getArg tyBlockVersion "block-version"
         puSoftwareVersion <- getArg tySoftwareVersion "software-version"
-        puBlockVersionModifier <- getArg tyBlockVersionModifier "bvm"
+        puBlockVersionModifier <- fromMaybe def <$> getArgOpt tyBlockVersionModifier "bvm"
         puUpdates <- getArgMany tyProposeUpdateSystem "update"
         pure ProposeUpdateParams{..}
     , cpExec = \params ->
