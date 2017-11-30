@@ -22,6 +22,7 @@ import qualified Data.ByteString.Lazy as BS.L
 import           Data.List (isSuffixOf)
 import           Data.Maybe (fromJust)
 import qualified Data.Text.IO as T
+import qualified Data.Text as TXT
 import           Data.Time.Units (Second, convertUnit)
 import           Data.Version (showVersion)
 import           Formatting (int, sformat, shown, stext, (%))
@@ -531,12 +532,28 @@ runWallet shouldLog (path, args) = do
     if shouldLog then
         liftIO $ do
         (_, stdO, stdE, pid) <- runInteractiveProcess path (map toString args) Nothing Nothing
-        withAsync (forever $ IO.hGetLine stdO >>= IO.hPutStrLn stdout . ("[wallet] " <>)) $ \_ ->
-            withAsync (forever $ IO.hGetLine stdE >>= IO.hPutStrLn stderr . ("[wallet err] " <>)) $ \_ -> do
+        withAsync (forever $ IO.hGetLine stdO >>= \x -> walletLogger "info" x) $ \_ ->
+            withAsync (forever $ IO.hGetLine stdE >>= \x -> walletLogger "error" x) $ \_ -> do
             waitForProcess pid
     else
         view _1 <$>
             liftIO (readProcessWithExitCode path (map toString args) mempty)
+
+walletLogger :: Log.CanLog m => String -> String -> m ()
+walletLogger logType logStr = do
+    Log.usingLoggerName "wallet" $
+        case logType of
+            "notice" -> logNotice $ TXT.pack logStr
+            "error" -> logError $ TXT.pack logStr
+            _ -> logInfo $ TXT.pack logStr
+
+nodeLogger :: Log.CanLog m => String -> String -> m ()
+nodeLogger logType logStr = do
+    Log.usingLoggerName "node" $
+        case logType of
+            "notice" -> logNotice $ TXT.pack logStr
+            "error" -> logError $ TXT.pack logStr
+            _ -> logInfo $ TXT.pack logStr
 
 ----------------------------------------------------------------------------
 -- Working with the report server
@@ -578,14 +595,14 @@ system'
     -- ^ Lines of standard input
     -> io ExitCode
     -- ^ Exit code
-system' phvar p sl = liftIO (do
+system' phvar p sl = Log.usingLoggerName "node" $ liftIO (do
     let open = do
             (m, stdO, stdE, ph) <- Process.createProcess p
             putMVar phvar ph
             case m of
                 Just hIn -> do
-                    _ <- withAsync (forever $ IO.hGetLine (fromJust stdO) >>= IO.hPutStrLn stdout . ("[node] " <>)) $ \_ ->
-                         withAsync (forever $ IO.hGetLine (fromJust stdE) >>= IO.hPutStrLn stderr . ("[node err] " <>)) $ \_ -> do
+                    _ <- withAsync (forever $ IO.hGetLine (fromJust stdO) >>= \x -> nodeLogger "info" x) $ \_ ->
+                         withAsync (forever $ IO.hGetLine (fromJust stdE) >>= \x -> nodeLogger "error" x) $ \_ -> do
                          waitForProcess ph
                     IO.hSetBuffering hIn IO.LineBuffering
                 _        -> return ()
