@@ -20,6 +20,7 @@ import           Mockable (runProduction)
 import           Servant.Server (Handler, hoistServer)
 
 import           Pos.Communication (OutSpecs, SendActions, WorkerSpec, worker)
+import           Pos.Communication.Limits (HasAdoptedBlockVersionData (..))
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
@@ -56,6 +57,9 @@ instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo) =>
          MonadTxpLocal ExplorerProd where
     txpNormalize = lift $ lift txpNormalize
     txpProcessTx = lift . lift . txpProcessTx
+
+instance HasAdoptedBlockVersionData RealModeE => HasAdoptedBlockVersionData ExplorerProd where
+    adoptedBVData = lift . lift $ adoptedBVData
 
 runExplorerProd :: ExtraContext -> ExplorerProd a -> RealModeE a
 runExplorerProd extraCtx = runExplorerBListener . runExtraContextT extraCtx
